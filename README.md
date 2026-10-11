@@ -1,2 +1,5 @@
-# boutique-auth-system
-A beautiful login authentication system with 2FA and role-based authorization for a boutique
+node_modules/
+.env
+boutique.db
+npm-debug.log*
+.DS_Store

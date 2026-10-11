@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Boutique Dashboard</title>
+    <link rel="stylesheet" href="/public/style.css" />
+  </head>
+  <body>
+    <div class="dashboard-shell">
+      <aside class="sidebar">
+        <div class="brand-mini">
+          <div class="brand-badge">B</div>
+          <div>
+            <strong>Boutique</strong>
+            <small>Control center</small>
+          </div>
+        </div>
+
+        <nav class="nav-links">
+          <a href="#overview" class="active">Overview</a>
+          <a href="#orders">Orders</a>
+          <a href="#clients">Clients</a>
+          <a href="#inventory">Inventory</a>
+          <a href="#reports">Reports</a>
+        </nav>
+
+        <button id="logoutBtn" class="ghost-btn">Log out</button>
+      </aside>
+
+      <main class="dashboard-content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Boutique dashboard</p>
+            <h2 id="welcomeText">Loading...</h2>
+          </div>
+          <div class="status-pill" id="roleBadge">Role</div>
+        </header>
+
+        <section class="stats-grid">
+          <div class="stat-card accent">
+            <span>Revenue</span>
+            <strong>$28.4K</strong>
+            <small>+12.4% this month</small>
+          </div>
+          <div class="stat-card">
+            <span>Orders</span>
+            <strong>421</strong>
+            <small>+28 new</small>
+          </div>
+          <div class="stat-card">
+            <span>Clients</span>
+            <strong>1,284</strong>
+            <small>+34 this week</small>
+          </div>
+          <div class="stat-card">
+            <span>Stock alerts</span>
+            <strong>07</strong>
+            <small>3 need review</small>
+          </div>
+        </section>
+
+        <section class="panel-grid">
+          <div class="panel">
+            <h3>Recent activity</h3>
+            <ul class="activity-list">
+              <li><span>12:40</span> New order placed by Amelia W.</li>
+              <li><span>11:15</span> Inventory restock approved</li>
+              <li><span>09:55</span> Customer loyalty bonus sent</li>
+              <li><span>08:30</span> Seasonal campaign launched</li>
+            </ul>
+          </div>
+
+          <div class="panel">
+            <h3>Access control</h3>
+            <div class="toggle-box">
+              <div>
+                <strong>Two-Factor Authentication</strong>
+                <p>Protect customer and store account access.</p>
+              </div>
+              <button id="setupTwoFactorBtn" class="primary-btn small-btn">Enable</button>
+            </div>
+
+            <div id="twoFactorMessage" class="message subtle-message"></div>
+            <img id="qrCode" class="qr-code" alt="2FA QR code" />
+          </div>
+        </section>
+
+        <section class="panel" id="overview">
+          <h3>Role-based permissions</h3>
+          <div class="permissions-box">
+            <div>
+              <span class="badge admin">Admin</span>
+              <p>Full system access, user management, reports.</p>
+            </div>
+            <div>
+              <span class="badge manager">Manager</span>
+              <p>Manage orders, inventory, and sales operations.</p>
+            </div>
+            <div>
+              <span class="badge customer">Customer</span>
+              <p>View profile, order history, and account details.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        window.location.href = "/";
+      }
+
+      async function loadProfile() {
+        const response = await fetch("/api/me", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+          localStorage.removeItem("token");
+          window.location.href = "/";
+          return;
+        }
+
+        const data = await response.json();
+        const user = data.user;
+
+        document.getElementById("welcomeText").textContent = `Welcome, ${user.name}`;
+        document.getElementById("roleBadge").textContent = user.role;
+
+        if (user.role === "Admin") {
+          document.getElementById("roleBadge").classList.add("admin");
+        } else if (user.role === "Manager") {
+          document.getElementById("roleBadge").classList.add("manager");
+        } else {
+          document.getElementById("roleBadge").classList.add("customer");
+        }
+      }
+
+      async function setupTwoFactor() {
+        const response = await fetch("/api/setup-2fa", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        const data = await response.json();
+
+        const messageBox = document.getElementById("twoFactorMessage");
+        const qrImage = document.getElementById("qrCode");
+
+        if (!response.ok) {
+          messageBox.textContent = data.message || "Unable to set up 2FA.";
+          messageBox.classList.add("error");
+          return;
+        }
+
+        messageBox.textContent = `${data.message} Enter the code from your app to complete setup.`;
+        messageBox.classList.remove("error");
+        qrImage.src = data.qrCode;
+        qrImage.style.display = "block";
+
+        const otp = prompt("Enter the 6-digit code generated by your authenticator app:");
+        if (!otp) {
+          messageBox.textContent = "2FA setup cancelled.";
+          return;
+        }
+
+        const verify = await fetch("/api/verify-2fa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: (await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } }).then((res) => res.json())).user.id, otp })
+        });
+
+        const verifyData = await verify.json();
+
+        if (!verify.ok) {
+          messageBox.textContent = verifyData.message || "OTP validation failed.";
+          messageBox.classList.add("error");
+          return;
+        }
+
+        messageBox.textContent = "Two-factor authentication is now enabled.";
+        messageBox.classList.remove("error");
+      }
+
+      document.getElementById("setupTwoFactorBtn").addEventListener("click", setupTwoFactor);
+
+      document.getElementById("logoutBtn").addEventListener("click", () => {
+        localStorage.removeItem("token");
+        window.location.href = "/";
+      });
+
+      loadProfile();
+    </script>
+  </body>
+</html>

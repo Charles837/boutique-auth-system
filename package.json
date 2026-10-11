@@ -1,0 +1,17 @@
+{
+  "name": "boutique-auth-system",
+  "version": "1.0.0",
+  "description": "Boutique-themed authentication app with 2FA and role-based authorization",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "qrcode": "^1.0.0",
+    "speakeasy": "^2.0.0",
+    "sqlite3": "^5.1.0"
+  }
+}

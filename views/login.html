@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Boutique Login</title>
+    <link rel="stylesheet" href="/public/style.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <div class="brand-panel">
+        <div class="brand-badge">B</div>
+        <div>
+          <p class="eyebrow">Private boutique access</p>
+          <h1>Boutique</h1>
+        </div>
+      </div>
+
+      <div class="auth-card">
+        <div class="card-header">
+          <p>Welcome back</p>
+          <h2>Sign in</h2>
+        </div>
+
+        <form id="loginForm" class="auth-form">
+          <label>
+            <span>Email</span>
+            <input id="loginEmail" type="email" placeholder="name@boutique.com" required />
+          </label>
+
+          <label>
+            <span>Password</span>
+            <input id="loginPassword" type="password" placeholder="Enter your password" required />
+          </label>
+
+          <button type="submit" class="primary-btn">Access boutique</button>
+        </form>
+
+        <div class="divider"><span>New here?</span></div>
+
+        <form id="registerForm" class="auth-form">
+          <label>
+            <span>Full name</span>
+            <input id="registerName" type="text" placeholder="Your full name" required />
+          </label>
+
+          <label>
+            <span>Email</span>
+            <input id="registerEmail" type="email" placeholder="name@boutique.com" required />
+          </label>
+
+          <label>
+            <span>Password</span>
+            <input id="registerPassword" type="password" placeholder="Create a password" required />
+          </label>
+
+          <label>
+            <span>Role</span>
+            <select id="registerRole">
+              <option value="Customer">Customer</option>
+              <option value="Manager">Manager</option>
+              <option value="Admin">Admin</option>
+            </select>
+          </label>
+
+          <button type="submit" class="secondary-btn">Create account</button>
+        </form>
+
+        <div id="message" class="message"></div>
+      </div>
+    </div>
+
+    <script>
+      const loginForm = document.getElementById("loginForm");
+      const registerForm = document.getElementById("registerForm");
+      const messageBox = document.getElementById("message");
+
+      function showMessage(text, isError = false) {
+        messageBox.textContent = text;
+        messageBox.style.color = isError ? "#b03a2e" : "#2e6b58";
+      }
+
+      loginForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const email = document.getElementById("loginEmail").value.trim();
+        const password = document.getElementById("loginPassword").value;
+
+        try {
+          const response = await fetch("/api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            showMessage(data.message || "Login failed", true);
+            return;
+          }
+
+          if (data.requiresTwoFactor) {
+            const otp = prompt("Enter your 6-digit authenticator code:");
+
+            if (!otp) {
+              showMessage("2FA verification cancelled", true);
+              return;
+            }
+
+            const verifyResponse = await fetch("/api/verify-2fa", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userId: data.userId, otp })
+            });
+
+            const verifyData = await verifyResponse.json();
+
+            if (!verifyResponse.ok) {
+              showMessage(verifyData.message || "Invalid 2FA code", true);
+              return;
+            }
+
+            localStorage.setItem("token", verifyData.token);
+            showMessage("2FA verified. Redirecting...");
+            setTimeout(() => (window.location.href = "/dashboard"), 700);
+            return;
+          }
+
+          localStorage.setItem("token", data.token);
+          showMessage("Login successful. Redirecting...");
+          setTimeout(() => (window.location.href = "/dashboard"), 700);
+        } catch (error) {
+          showMessage("Something went wrong. Please try again.", true);
+        }
+      });
+
+      registerForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const name = document.getElementById("registerName").value.trim();
+        const email = document.getElementById("registerEmail").value.trim();
+        const password = document.getElementById("registerPassword").value;
+        const role = document.getElementById("registerRole").value;
+
+        try {
+          const response = await fetch("/api/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, password, role })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            showMessage(data.message || "Registration failed", true);
+            return;
+          }
+
+          showMessage(data.message || "Registration successful");
+          registerForm.reset();
+        } catch (error) {
+          showMessage("Registration error. Try again.", true);
+        }
+      });
+    </script>
+  </body>
+</html>
